@@ -18,14 +18,10 @@ REG_MODE = 0x0002
 SIGN_OUTPUT_MASK = (REG_OPBITEN | REG_SIGNPIB | REG_DIV2 | REG_MODE)
 
 # Sign mode register bits
-SIGN_OUTPUT_NONE = 0x0000
-SIGN_OUTPUT_MSB = 0x0028
-SIGN_OUTPUT_MSB_2 = 0x0020
-SIGN_OUTPUT_COMPARATOR = 0x0038
+SIGN_OUTPUT = {"NONE":0x0000, "MSB":0x0028, "MSB_2":0x0020, "COMPARATOR":0x0038}
 
 # Output mode register bits
-OUTPUT_MODE_SINE = 0x0000
-OUTPUT_MODE_TRIANGLE = 0x0002
+OUTPUT_MODE = {"SINE":0x0000, "TRIANGLE":0x0002}
 
 class AD983X:
 	def __init__(self, cs_pin):
@@ -38,6 +34,8 @@ class AD983X:
 		self.writeReg(self.m_reg)
 
 		# Initialize frequency and phase registers to 0
+		self.setOutputMode("SINE") # Output sine wave
+		self.setSignOutput("NONE") # Disable sign output
 		self.setFrequency(0, 0)
 		self.setFrequency(1, 0)
 		self.setPhase(0, 0)
@@ -47,29 +45,36 @@ class AD983X:
 		to_send = [value >> 8, value & 0xFF]
 		self.spi.xfer(to_send)
 
-	# Set the output frequency
-	# channel{0|1}: the output channel
-	# frequency(MHz): the output frequency
+	'''
+	Set the output frequency
+		channel{0|1}: the output channel
+		frequency(MHz): the output frequency
+	'''
 	def setFrequency(self, channel, frequency):
 		self.writeReg(REG_FREQ[channel] | (frequency & 0x3FFF))
 		self.writeReg(REG_FREQ[channel] | ((frequency >> 14) & 0x3FFF))
 
-	# Set the output phase
-	# channel{0|1}: the output channel
-	# phase: the output phase, 12bit
+	'''
+	Set the output phase
+		channel{0|1}: the output channel
+		phase: the output phase, 12bit
+	'''
 	def setPhase(self, channel, phase):
 		self.writeReg(REG_PHASE[channel] | (phase & 0x0FFF))
 
-	# Set the sign bit output pin mode
-	# out{SIGN_OUTPUT_*}: register bits from above
+	'''
+	Set the mode of sign output
+		out{"NONE"|"MSB"|"MSB_2"|"COMPARATOR"}: register bits from above
+	'''
 	def setSignOutput(self, out):
-		self.m_reg = (self.m_reg & ~SIGN_OUTPUT_MASK) | out
+		self.m_reg = (self.m_reg & ~SIGN_OUTPUT_MASK) | SIGN_OUTPUT[out]
 		self.writeReg(self.m_reg)
 
-	# Set the output mode
-	# out{OUTPUT_MODE_*}: register bits from above
+	'''
+	Set the output mode
+		out{"SINE"|"TRIANGLE"}: register bits from above
+	'''
 	def setOutputMode(self, out):
 		self.m_reg &= ~REG_MODE
-		if out == OUTPUT_MODE_TRIANGLE):
-			self.m_reg = (self.m_reg & ~SIGN_OUTPUT_MASK) | out
+		self.m_reg = (self.m_reg & ~SIGN_OUTPUT_MASK) | OUTPUT_MODE[out]
 		self.writeReg(self.m_reg)

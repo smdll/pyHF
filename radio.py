@@ -6,37 +6,71 @@ import ConfigParser
 
 sock = socket(AF_INET, SOCK_DGRAM)
 sock.bind(("127.0.0.1", 4321))
-ad9983x = AD983X(0) # SPI bus 0(/dev/spidev0.0)
-ad983x.setOutputMode(OUTPUT_MODE_SINE) # Output sine wave
-ad983x.setSignOutput(SIGN_OUTPUT_NONE) # Channel 0
-wpm = 15
-dit_time = wpm * 5 / 6 / 1000#######
-dah_time = dit_time * 3#######
+ad983x = AD983X(0) # SPI bus 0(/dev/spidev0.0)
+current_frequency = 7.023
+dit_time = 0
+dah_time = 0
+CODE = {
+	'A': '.-',     'B': '-...',   'C': '-.-.', 
+	'D': '-..',    'E': '.',       'F': '..-.',
+	'G': '--.',   'H': '....',    'I': '..',
+	'J': '.---',   'K': '-.-',    'L': '.-..',
+	'M': '--',    'N': '-.',     'O': '---',
+	'P': '.--.',   'Q': '--.-',  'R': '.-.',
+     	'S': '...',     'T': '-',      'U': '..-',
+	'V': '...-',   'W': '.--',   'X': '-..-',
+	'Y': '-.--',   'Z': '--..',
+
+	'0': '-----', '1': '.----', '2': '..---',
+	'3': '...--',  '4': '....-',  '5': '.....',
+	'6': '-....',   '7': '--...', '8': '---..',
+	'9': '----.',
+
+	'.': '.-.-.-', '?': '..--..',  ' ': ' '
+}
 
 def sendCW(data):
-	for word in data:
-		if word == '.':
-			setSignOutput(SIGN_OUTPUT_MSB)
+	for ch in data:
+		code = CODE['?']
+		try:
+			code = CODE[ch]
+		except:
+			pass
+		for elem in code:
+			if elem == '.':
+				ad983x.setFrequency(0, current_frequency)
+				time.sleep(dit_time)
+				ad983x.setFrequency(0, 0)
+			elif elem == '-':
+				ad983x.setFrequency(0, current_frequency)
+				time.sleep(dah_time)
+				ad983x.setFrequency(0, 0)
+			else:
+				time.sleep(2 * dit_time)
 			time.sleep(dit_time)
-			
-		elif word == '-':
-			pass
-		elif word == ' ':
-			pass
-		else:
-			raise Exception("Character Error")
 
+def changeWPM(wpm):
+	global dit_time
+	global dah_time
+	dit_time = wpm * 5 / 6 / 1000
+	dah_time = dit_time * 3
 '''
 Data format:
 	1. Set frequency: !{Frequency(MHz)}&
 	2. Set words per minute(WPM): @{WPM}&
 	3. Send preset cw: #{.|-| }&
 '''
-while True:
-	data, addr = sock.recvfrom(256)
-	if data[0] == '!':
-		ad983x.setFrequency(int(data[1:data.find('&')]))
-	elif data[0] == '@':
-		
-	elif data[0] == '#':
-		sendCW(data[1:data.find('&')])
+def main():
+	global current_frequency
+	changeWPM(15)
+	while True:
+		data, addr = sock.recvfrom(256)
+		if data[0] == '!':
+			current_frequency = int(data[1:data.find('&')])
+		elif data[0] == '@':
+			changeWPM(int(data[1:data.find('&')]))
+		elif data[0] == '#':
+			sendCW(data[1:data.find('&')])
+
+if __name__ == "__main__":
+	main()
